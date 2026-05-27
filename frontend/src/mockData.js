@@ -376,6 +376,12 @@ export const getVenues = (weekend) =>
 export const getRacesByVenue = (weekend, venue) =>
   upcomingRaces.filter(r => r.weekend === weekend && r.venue === venue);
 
+export const getDescendants = (horseName) =>
+  mockHorses.filter(h => h.sire === horseName || h.dam === horseName);
+
+export const getSiblings = (horse) =>
+  mockHorses.filter(h => h.id !== horse.id && h.sire === horse.sire && horse.sire);
+
 export const getRelatedHorses = (horse) => {
   const sameFarm = mockHorses.filter(h => h.id !== horse.id && h.farm === horse.farm).slice(0, 3);
   const sameTrainer = mockHorses.filter(h => h.id !== horse.id && h.trainer === horse.trainer).slice(0, 3);

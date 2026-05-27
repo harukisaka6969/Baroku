@@ -5,7 +5,8 @@ import HorseCard from '../components/HorseCard.jsx';
 import { mockHorses, getFarms, upcomingRaces, getHorseById } from '../mockData.js';
 import PredictionPanel from '../components/PredictionPanel.jsx';
 
-const SEX_FILTERS = ['すべて', '牡', '牝', '種牡馬', '繁殖牝馬', '現役'];
+const SEX_OPTIONS    = ['牡', '牝'];
+const STATUS_OPTIONS = ['現役', '種牡馬', '繁殖牝馬', '引退'];
 
 const GRADE_COLORS = {
   'G1': 'bg-gold/10 text-gold-dark border border-gold/30',
@@ -122,9 +123,20 @@ function ScheduleSection() {
 }
 
 export default function Home() {
-  const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState('すべて');
-  const [tab, setTab] = useState('list');
+  const [query, setQuery]         = useState('');
+  const [sexSet, setSexSet]       = useState(new Set());
+  const [statusSet, setStatusSet] = useState(new Set());
+  const [tab, setTab]             = useState('list');
+
+  const toggleFilter = (set, setter, value) => {
+    setter(prev => {
+      const next = new Set(prev);
+      next.has(value) ? next.delete(value) : next.add(value);
+      return next;
+    });
+  };
+
+  const hasFilter = sexSet.size > 0 || statusSet.size > 0;
 
   const filtered = useMemo(() => {
     return mockHorses.filter(h => {
@@ -134,13 +146,11 @@ export default function Home() {
         h.trainer.includes(query) ||
         h.farm.includes(query) ||
         h.sire.includes(query);
-      const matchFilter = filter === 'すべて' ||
-        (filter === '牡' && h.sex === '牡') ||
-        (filter === '牝' && h.sex === '牝') ||
-        h.status === filter;
-      return matchQuery && matchFilter;
+      const matchSex    = sexSet.size === 0    || sexSet.has(h.sex);
+      const matchStatus = statusSet.size === 0 || statusSet.has(h.status);
+      return matchQuery && matchSex && matchStatus;
     });
-  }, [query, filter]);
+  }, [query, sexSet, statusSet]);
 
   return (
     <div className="min-h-screen bg-cream">
@@ -184,22 +194,55 @@ export default function Home() {
         {/* Tab: 馬一覧 */}
         {tab === 'list' && (
           <div>
-            <div className="flex gap-2 mb-6 flex-wrap">
-              {SEX_FILTERS.map(f => (
-                <button
-                  key={f}
-                  onClick={() => setFilter(f)}
-                  className={`px-4 py-1.5 rounded-full text-sm font-sans font-medium border transition-all duration-200
-                    ${filter === f
-                      ? 'bg-stone-900 text-white border-stone-900'
-                      : 'bg-white text-stone-600 border-stone-200 hover:border-stone-400'
-                    }`}
-                >
-                  {f}
-                </button>
-              ))}
-              <span className="ml-auto text-xs text-stone-400 font-sans self-center">{filtered.length}頭</span>
+            {/* Multi-filter */}
+            <div className="bg-white border border-stone-100 rounded-2xl p-4 mb-6 space-y-3">
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="text-xs text-stone-400 font-sans w-10 shrink-0">性別</span>
+                <div className="flex gap-1.5 flex-wrap">
+                  {SEX_OPTIONS.map(f => (
+                    <button
+                      key={f}
+                      onClick={() => toggleFilter(sexSet, setSexSet, f)}
+                      className={`px-3 py-1 rounded-full text-xs font-sans font-medium border transition-all
+                        ${sexSet.has(f)
+                          ? 'bg-stone-900 text-white border-stone-900'
+                          : 'bg-stone-50 text-stone-600 border-stone-200 hover:border-stone-400'}`}
+                    >
+                      {f}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="text-xs text-stone-400 font-sans w-10 shrink-0">状態</span>
+                <div className="flex gap-1.5 flex-wrap">
+                  {STATUS_OPTIONS.map(f => (
+                    <button
+                      key={f}
+                      onClick={() => toggleFilter(statusSet, setStatusSet, f)}
+                      className={`px-3 py-1 rounded-full text-xs font-sans font-medium border transition-all
+                        ${statusSet.has(f)
+                          ? 'bg-stone-900 text-white border-stone-900'
+                          : 'bg-stone-50 text-stone-600 border-stone-200 hover:border-stone-400'}`}
+                    >
+                      {f}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex items-center justify-between pt-1 border-t border-stone-50">
+                <span className="text-xs text-stone-400 font-sans">{filtered.length}頭表示中</span>
+                {hasFilter && (
+                  <button
+                    onClick={() => { setSexSet(new Set()); setStatusSet(new Set()); }}
+                    className="text-xs text-gold font-sans hover:underline"
+                  >
+                    フィルターをクリア
+                  </button>
+                )}
+              </div>
             </div>
+
             {filtered.length > 0 ? (
               <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(270px, 1fr))' }}>
                 {filtered.map((horse, i) => (
@@ -210,10 +253,10 @@ export default function Home() {
               <div className="text-center py-16">
                 <p className="font-serif text-xl text-stone-400">該当する馬が見つかりませんでした</p>
                 <button
-                  onClick={() => { setQuery(''); setFilter('すべて'); }}
+                  onClick={() => { setQuery(''); setSexSet(new Set()); setStatusSet(new Set()); }}
                   className="mt-3 text-sm text-gold font-sans hover:underline"
                 >
-                  フィルターをリセット
+                  すべてリセット
                 </button>
               </div>
             )}
