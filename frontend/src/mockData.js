@@ -357,45 +357,24 @@ export const getFarms = () => {
 export const getHorsesByFarm = (farmName) =>
   mockHorses.filter(h => h.farm === farmName);
 
-// Mock upcoming races (use dates around 2026-05-28 to 2026-06-01)
 export const upcomingRaces = [
-  {
-    id: 'r1',
-    date: '2026-05-31',
-    race_name: '安田記念',
-    grade: 'G1',
-    course: '東京',
-    distance: '1600m',
-    entries: [5, 8, 10, 3, 9],
-  },
-  {
-    id: 'r2',
-    date: '2026-06-01',
-    race_name: '鳴尾記念',
-    grade: 'G3',
-    course: '阪神',
-    distance: '2000m',
-    entries: [7, 4, 6, 2],
-  },
-  {
-    id: 'r3',
-    date: '2026-05-30',
-    race_name: 'メトロポリタンS',
-    grade: 'OP',
-    course: '東京',
-    distance: '2400m',
-    entries: [1, 6, 10],
-  },
-  {
-    id: 'r4',
-    date: '2026-05-28',
-    race_name: '葵ステークス',
-    grade: 'G3',
-    course: '京都',
-    distance: '1200m',
-    entries: [9, 5, 3],
-  },
+  // Weekend 1: May 30-31
+  { id: 'r1', date: '2026-05-31', weekend: 1, race_name: '安田記念', grade: 'G1', venue: '東京', distance: '1600m', surface: '芝', entries: [5, 8, 10, 3, 9] },
+  { id: 'r2', date: '2026-05-30', weekend: 1, race_name: '目黒記念', grade: 'G2', venue: '東京', distance: '2500m', surface: '芝', entries: [1, 4, 8, 6] },
+  { id: 'r3', date: '2026-05-30', weekend: 1, race_name: '鳴尾記念', grade: 'G3', venue: '阪神', distance: '2000m', surface: '芝', entries: [7, 2, 6, 10] },
+  { id: 'r4', date: '2026-05-31', weekend: 1, race_name: '葵ステークス', grade: 'G3', venue: '京都', distance: '1200m', surface: '芝', entries: [9, 5, 3] },
+  // Weekend 2: Jun 6-7
+  { id: 'r5', date: '2026-06-07', weekend: 2, race_name: 'エプソムC', grade: 'G3', venue: '東京', distance: '1800m', surface: '芝', entries: [5, 9, 3, 8] },
+  { id: 'r6', date: '2026-06-06', weekend: 2, race_name: 'マーメイドS', grade: 'G3', venue: '阪神', distance: '2000m', surface: '芝', entries: [3, 9, 6] },
+  { id: 'r7', date: '2026-06-07', weekend: 2, race_name: '函館スプリントS', grade: 'G3', venue: '函館', distance: '1200m', surface: '芝', entries: [5, 10, 9] },
+  { id: 'r8', date: '2026-06-06', weekend: 2, race_name: '函館記念', grade: 'G3', venue: '函館', distance: '2000m', surface: '芝', entries: [1, 4, 7, 6] },
 ];
+
+export const getVenues = (weekend) =>
+  [...new Set(upcomingRaces.filter(r => r.weekend === weekend).map(r => r.venue))];
+
+export const getRacesByVenue = (weekend, venue) =>
+  upcomingRaces.filter(r => r.weekend === weekend && r.venue === venue);
 
 export const getRelatedHorses = (horse) => {
   const sameFarm = mockHorses.filter(h => h.id !== horse.id && h.farm === horse.farm).slice(0, 3);

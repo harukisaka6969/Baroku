@@ -5,7 +5,7 @@ import PedigreeChart from '../components/PedigreeChart.jsx';
 import RaceHistory from '../components/RaceHistory.jsx';
 import RelatedHorses from '../components/RelatedHorses.jsx';
 import PredictionPanel from '../components/PredictionPanel.jsx';
-import { getHorseById, getRelatedHorses, mockHorses } from '../mockData.js';
+import { getHorseById, getRelatedHorses } from '../mockData.js';
 
 const STATUS_COLORS = {
   '現役': 'bg-emerald-100 text-emerald-700',
@@ -98,7 +98,7 @@ export default function Horse() {
           {tab === 'pedigree' && <PedigreeChart horse={horse} />}
           {tab === 'races' && <RaceHistory races={horse.races} />}
           {tab === 'related' && <RelatedHorses related={related} horse={horse} />}
-          {tab === 'prediction' && <PredictionPanel horse={horse} allHorses={mockHorses} />}
+          {tab === 'prediction' && <PredictionPanel />}
         </div>
       </main>
 

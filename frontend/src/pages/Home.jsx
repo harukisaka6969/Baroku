@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import SearchBar from '../components/SearchBar.jsx';
 import HorseCard from '../components/HorseCard.jsx';
 import { mockHorses, getFarms, upcomingRaces, getHorseById } from '../mockData.js';
+import PredictionPanel from '../components/PredictionPanel.jsx';
 
 const SEX_FILTERS = ['すべて', '牡', '牝', '種牡馬', '繁殖牝馬', '現役'];
 
@@ -14,9 +15,10 @@ const GRADE_COLORS = {
 };
 
 const TABS = [
-  { id: 'list', label: '馬一覧' },
-  { id: 'farm', label: '牧場から選ぶ' },
+  { id: 'list',     label: '馬一覧' },
+  { id: 'farm',     label: '牧場から選ぶ' },
   { id: 'schedule', label: '今週のレース' },
+  { id: 'predict',  label: '🎯 週末予想' },
 ];
 
 function FarmSection() {
@@ -223,6 +225,13 @@ export default function Home() {
 
         {/* Tab: 今週のレース */}
         {tab === 'schedule' && <ScheduleSection />}
+
+        {/* Tab: 週末予想 */}
+        {tab === 'predict' && (
+          <div className="max-w-2xl">
+            <PredictionPanel />
+          </div>
+        )}
       </main>
 
       <footer className="border-t border-stone-100 mt-16 py-8">
