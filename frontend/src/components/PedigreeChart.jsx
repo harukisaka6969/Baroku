@@ -1,109 +1,121 @@
 export default function PedigreeChart({ horse }) {
-  const gen3 = [
-    horse.sire_of_sire, horse.dam_of_sire,
-    horse.sire_of_dam, horse.dam_of_dam,
-  ];
-
   return (
-    <div className="overflow-x-auto">
-      <div className="min-w-[600px]">
-        <div className="grid grid-cols-4 gap-2 items-center">
-          {/* Generation labels */}
-          <div className="col-span-1 text-xs text-stone-400 font-sans text-center mb-1">本馬</div>
-          <div className="col-span-1 text-xs text-stone-400 font-sans text-center mb-1">父・母</div>
-          <div className="col-span-2 text-xs text-stone-400 font-sans text-center mb-1">祖父・祖母</div>
-        </div>
-
-        <div className="grid gap-2" style={{ gridTemplateRows: 'repeat(4, auto)' }}>
-          {/* Row 1: horse name spanning all */}
-          <div className="grid grid-cols-4 gap-2">
-            <div className="row-span-4 flex items-center justify-center bg-gold/10 border border-gold/30 rounded-xl p-3 col-span-1">
-              <div className="text-center">
-                <div className="font-serif text-base font-semibold text-stone-900">{horse.name}</div>
-                <div className="text-xs text-stone-400 mt-1">{horse.name_en}</div>
-                <div className="text-xs text-stone-500 mt-1">{horse.born_year}年生 {horse.sex}</div>
-              </div>
-            </div>
+    <div className="space-y-8">
+      {/* Visual pedigree tree */}
+      <div>
+        <h4 className="text-sm font-sans font-medium text-stone-500 mb-4 uppercase tracking-wider">3代血統表</h4>
+        <div className="overflow-x-auto">
+          <div className="min-w-[580px]">
+            <PedigreeTree horse={horse} />
           </div>
         </div>
+      </div>
 
-        {/* Actual pedigree grid */}
-        <div className="mt-2 grid grid-cols-4 gap-2">
-          {/* Sire column */}
-          <PedigreeCell name={horse.sire} label="父" className="col-start-2 row-start-1 row-span-2 self-center" />
-          <PedigreeCell name={horse.sire_of_sire} label="父父" />
-          <PedigreeCell name={horse.dam_of_sire} label="父母" />
-
-          {/* Dam column */}
-          <PedigreeCell name={horse.dam} label="母" className="col-start-2 row-start-3 row-span-2 self-center" />
-          <PedigreeCell name={horse.sire_of_dam} label="母父" />
-          <PedigreeCell name={horse.dam_of_dam} label="母母" />
+      {/* Blood summary */}
+      <div className="bg-stone-50 rounded-2xl p-5">
+        <h4 className="text-sm font-sans font-medium text-stone-600 mb-3">血統サマリー</h4>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+          <InfoItem label="父" value={horse.sire} />
+          <InfoItem label="母" value={horse.dam} />
+          <InfoItem label="父父" value={horse.sire_of_sire} />
+          <InfoItem label="父母" value={horse.dam_of_sire} />
+          <InfoItem label="母父" value={horse.sire_of_dam} />
+          <InfoItem label="母母" value={horse.dam_of_dam} />
         </div>
-
-        {/* Simple 3-gen visual */}
-        <div className="mt-6">
-          <h4 className="text-sm font-sans font-medium text-stone-600 mb-3">3代血統</h4>
-          <div className="grid grid-cols-7 gap-1 text-xs">
-            {/* Col 1: Horse */}
-            <div className="col-span-1 row-span-4 flex items-center">
-              <PedigreeBox name={horse.name} highlight />
-            </div>
-            {/* Col 2-3: Parents */}
-            <div className="col-span-2 col-start-2 row-span-2 flex items-center">
-              <PedigreeBox name={horse.sire} label="父" />
-            </div>
-            <div className="col-span-2 col-start-2 row-span-2 flex items-center">
-              <PedigreeBox name={horse.dam} label="母" />
-            </div>
-            {/* Col 4-7: Grandparents */}
-            <div className="col-span-2 col-start-4">
-              <PedigreeBox name={horse.sire_of_sire} label="父父" small />
-            </div>
-            <div className="col-span-2 col-start-6">
-              <PedigreeBox name={horse.dam_of_sire} label="父母" small />
-            </div>
-            <div className="col-span-2 col-start-4">
-              <PedigreeBox name={horse.sire_of_dam} label="母父" small />
-            </div>
-            <div className="col-span-2 col-start-6">
-              <PedigreeBox name={horse.dam_of_dam} label="母母" small />
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-6 p-4 bg-stone-50 rounded-xl">
-          <h4 className="text-sm font-sans font-medium text-stone-600 mb-2">血統サマリー</h4>
-          <p className="text-sm text-stone-700 font-sans leading-relaxed">
-            {horse.name}は<strong>{horse.sire}</strong>を父に持ち、母方には<strong>{horse.sire_of_dam}</strong>の血を引く。
-            {horse.sire === 'サンデーサイレンス' || horse.sire_of_sire === 'サンデーサイレンス'
-              ? 'サンデーサイレンス系の底力と底力が受け継がれ、'
-              : ''}
-            {horse.g1_wins}つのG1タイトルが示す通り、一流の競走能力を持つ血統構成となっている。
-          </p>
-        </div>
+        <p className="text-sm text-stone-600 font-sans leading-relaxed">
+          {horse.name}は<strong className="text-stone-800">{horse.sire}</strong>を父に持ち、
+          母方には<strong className="text-stone-800">{horse.sire_of_dam}</strong>の血を引く。
+          {(horse.sire === 'サンデーサイレンス' || horse.sire_of_sire === 'サンデーサイレンス') &&
+            'サンデーサイレンス系の豊富なスタミナと切れ味を受け継ぐ。'}
+          {horse.g1_wins}つのG1タイトルが示す通り、トップクラスの血統構成となっている。
+        </p>
       </div>
     </div>
   );
 }
 
-function PedigreeCell({ name, label, className }) {
+function PedigreeTree({ horse }) {
   return (
-    <div className={`bg-white border border-stone-100 rounded-lg p-2 text-center ${className || ''}`}>
-      <div className="text-xs text-stone-400 font-sans">{label}</div>
-      <div className="text-sm font-serif font-medium text-stone-800 mt-0.5">{name || '—'}</div>
+    <div className="flex items-stretch gap-0">
+      {/* Col 1: Self */}
+      <div className="flex items-center w-36 shrink-0 pr-2">
+        <PedigreeBox name={horse.name} sub={horse.name_en} highlight />
+      </div>
+
+      {/* Connector 1→2 */}
+      <div className="flex flex-col justify-around w-4 shrink-0">
+        <HBranch top />
+        <HBranch bottom />
+      </div>
+
+      {/* Col 2: Parents */}
+      <div className="flex flex-col gap-4 w-32 shrink-0 justify-around pr-2">
+        <PedigreeBox name={horse.sire} label="父" />
+        <PedigreeBox name={horse.dam} label="母" />
+      </div>
+
+      {/* Connector 2→3 */}
+      <div className="flex flex-col w-4 shrink-0">
+        <div className="flex-1 flex flex-col justify-around">
+          <HBranch top small />
+          <HBranch bottom small />
+        </div>
+        <div className="flex-1 flex flex-col justify-around">
+          <HBranch top small />
+          <HBranch bottom small />
+        </div>
+      </div>
+
+      {/* Col 3: Grandparents */}
+      <div className="flex flex-col gap-2 w-36 shrink-0 justify-around">
+        <PedigreeBox name={horse.sire_of_sire} label="父父" small />
+        <PedigreeBox name={horse.dam_of_sire} label="父母" small />
+        <PedigreeBox name={horse.sire_of_dam} label="母父" small />
+        <PedigreeBox name={horse.dam_of_dam} label="母母" small />
+      </div>
     </div>
   );
 }
 
-function PedigreeBox({ name, label, highlight, small }) {
+function PedigreeBox({ name, sub, label, highlight, small }) {
   return (
-    <div className={`w-full p-2 rounded-lg border text-center
-      ${highlight ? 'bg-gold/10 border-gold/40' : 'bg-white border-stone-100'}
-      ${small ? 'py-1' : ''}`}>
-      {label && <div className="text-stone-400" style={{ fontSize: '10px' }}>{label}</div>}
-      <div className={`font-serif font-medium text-stone-800 ${small ? 'text-xs' : 'text-sm'}`}>
+    <div className={`w-full rounded-xl border text-center px-2
+      ${small ? 'py-1.5' : 'py-3'}
+      ${highlight
+        ? 'bg-gold/10 border-gold/40 shadow-sm'
+        : 'bg-white border-stone-100 hover:border-gold/40 transition-colors'
+      }`}
+    >
+      {label && (
+        <div className="text-stone-400 font-sans mb-0.5" style={{ fontSize: '10px' }}>{label}</div>
+      )}
+      <div className={`font-serif font-semibold text-stone-900 leading-tight
+        ${small ? 'text-xs' : highlight ? 'text-base' : 'text-sm'}`}>
         {name || '—'}
       </div>
+      {sub && (
+        <div className="text-stone-400 font-sans mt-0.5" style={{ fontSize: '10px' }}>{sub}</div>
+      )}
+    </div>
+  );
+}
+
+function HBranch({ top, bottom, small }) {
+  return (
+    <div className={`flex-1 relative ${small ? '' : ''}`}>
+      <div className={`absolute inset-0 border-stone-200
+        ${top ? 'border-r border-b rounded-br-md' : ''}
+        ${bottom ? 'border-r border-t rounded-tr-md' : ''}
+      `} />
+    </div>
+  );
+}
+
+function InfoItem({ label, value }) {
+  return (
+    <div>
+      <div className="text-xs text-stone-400 font-sans">{label}</div>
+      <div className="text-sm font-serif font-medium text-stone-800 mt-0.5">{value || '—'}</div>
     </div>
   );
 }

@@ -342,6 +342,61 @@ export const mockHorses = [
 
 export const getHorseById = (id) => mockHorses.find(h => h.id === parseInt(id));
 
+// Derive farm list from horses
+export const getFarms = () => {
+  const farmMap = {};
+  mockHorses.forEach(h => {
+    if (!farmMap[h.farm]) {
+      farmMap[h.farm] = { name: h.farm, location: h.birthplace, horses: [] };
+    }
+    farmMap[h.farm].horses.push(h);
+  });
+  return Object.values(farmMap);
+};
+
+export const getHorsesByFarm = (farmName) =>
+  mockHorses.filter(h => h.farm === farmName);
+
+// Mock upcoming races (use dates around 2026-05-28 to 2026-06-01)
+export const upcomingRaces = [
+  {
+    id: 'r1',
+    date: '2026-05-31',
+    race_name: '安田記念',
+    grade: 'G1',
+    course: '東京',
+    distance: '1600m',
+    entries: [5, 8, 10, 3, 9],
+  },
+  {
+    id: 'r2',
+    date: '2026-06-01',
+    race_name: '鳴尾記念',
+    grade: 'G3',
+    course: '阪神',
+    distance: '2000m',
+    entries: [7, 4, 6, 2],
+  },
+  {
+    id: 'r3',
+    date: '2026-05-30',
+    race_name: 'メトロポリタンS',
+    grade: 'OP',
+    course: '東京',
+    distance: '2400m',
+    entries: [1, 6, 10],
+  },
+  {
+    id: 'r4',
+    date: '2026-05-28',
+    race_name: '葵ステークス',
+    grade: 'G3',
+    course: '京都',
+    distance: '1200m',
+    entries: [9, 5, 3],
+  },
+];
+
 export const getRelatedHorses = (horse) => {
   const sameFarm = mockHorses.filter(h => h.id !== horse.id && h.farm === horse.farm).slice(0, 3);
   const sameTrainer = mockHorses.filter(h => h.id !== horse.id && h.trainer === horse.trainer).slice(0, 3);
