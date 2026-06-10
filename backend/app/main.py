@@ -8,9 +8,11 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 from .database import engine, SessionLocal
-from . import models
-from .routers import horses, prediction
+from . import models, schemas
+from .routers import horses, prediction, races
 from .seed import seed_if_empty
+from .ml.train import train_model
+from .ml.predict import reload_model
 
 ADMIN_SECRET = os.getenv("ADMIN_SECRET", "")
 
@@ -23,6 +25,13 @@ async def lifespan(app: FastAPI):
         seeded = seed_if_empty(db)
         if seeded:
             logger.info("DB が空だったため初期データを投入しました")
+
+        result = train_model(db)
+        if result["trained"]:
+            reload_model()
+            logger.info(f"予測モデルを学習しました（サンプル数: {result['samples']}）")
+        else:
+            logger.info(f"予測モデルは未学習です: {result.get('reason')}")
     finally:
         db.close()
     yield
@@ -41,6 +50,7 @@ app.add_middleware(
 
 app.include_router(horses.router)
 app.include_router(prediction.router)
+app.include_router(races.router)
 
 
 @app.get("/")
@@ -64,3 +74,21 @@ async def trigger_scrape(
     from .scraper.run_scraper import main as run_scraper, DEFAULT_HORSE_IDS
     asyncio.create_task(run_scraper(DEFAULT_HORSE_IDS))
     return {"message": f"スクレイプ開始: {len(DEFAULT_HORSE_IDS)} 頭（バックグラウンド実行）"}
+
+
+@app.post("/admin/train", response_model=schemas.TrainResultSchema)
+async def trigger_train(
+    x_admin_secret: str = Header(default=""),
+):
+    """確定済みレース結果を使って予測モデルを再学習する（ADMIN_SECRET が必要）。"""
+    if ADMIN_SECRET and x_admin_secret != ADMIN_SECRET:
+        raise HTTPException(status_code=403, detail="Invalid secret")
+
+    db = SessionLocal()
+    try:
+        result = train_model(db)
+        if result["trained"]:
+            reload_model()
+        return result
+    finally:
+        db.close()

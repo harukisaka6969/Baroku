@@ -382,6 +382,38 @@ export const getDescendants = (horseName) =>
 export const getSiblings = (horse) =>
   mockHorses.filter(h => h.id !== horse.id && h.sire === horse.sire && horse.sire);
 
+// バックエンド未接続時のフォールバック（/races/weekly/plan のモック）
+export const mockWeeklyPlan = {
+  weekly_budget: 5000,
+  total_stake: 2700,
+  model_status: 'heuristic',
+  disclaimer: '本予想・買い方提案はアルゴリズムによる参考情報であり、的中や利益を保証するものではありません。馬券の購入は自己責任で行ってください。当サイトは一切の損害について責任を負いません。18歳未満の方の利用はお断りします。',
+  races: [
+    {
+      race_id: 1,
+      race_name: '安田記念',
+      racecourse: '東京',
+      date: '2026-06-14',
+      predictions: [
+        { horse_id: 7, horse_number: 1, horse_name: 'エフフォーリア', p_win: 0.10, p_place: 0.55, odds_win: 3.8, odds_place: 1.7 },
+        { horse_id: 10, horse_number: 2, horse_name: 'ドウデュース', p_win: 0.18, p_place: 0.60, odds_win: 5.7, odds_place: 2.1 },
+        { horse_id: 5, horse_number: 3, horse_name: 'アーモンドアイ', p_win: 0.07, p_place: 0.45, odds_win: 7.4, odds_place: 2.6 },
+      ],
+      plan: {
+        tickets: [
+          { bet_type: '複勝', target: '2 ドウデュース', stake: 800, odds: 2.1, probability: 0.60, expected_return: 1008, reason: '安定して3着内に入る確率が高く、オッズに対して割安' },
+          { bet_type: '単勝', target: '2 ドウデュース', stake: 400, odds: 5.7, probability: 0.18, expected_return: 410, reason: '勝率に対してオッズが高く、期待値がプラス' },
+          { bet_type: '複勝', target: '1 エフフォーリア', stake: 500, odds: 1.7, probability: 0.55, expected_return: 468, reason: '安定して3着内に入る確率が高く、オッズに対して割安' },
+        ],
+        total_stake: 1700,
+        unallocated: 3300,
+        expected_value: 1886,
+        note: '複勝中心に損失を抑えつつ、期待値プラスの買い目に資金を配分しています。',
+      },
+    },
+  ],
+};
+
 export const getRelatedHorses = (horse) => {
   const sameFarm = mockHorses.filter(h => h.id !== horse.id && h.farm === horse.farm).slice(0, 3);
   const sameTrainer = mockHorses.filter(h => h.id !== horse.id && h.trainer === horse.trainer).slice(0, 3);

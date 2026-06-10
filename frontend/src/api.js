@@ -94,3 +94,30 @@ export async function postPrediction(body) {
 export function isUsingMock() {
   return _backendAlive === false;
 }
+
+// ── JRAレース一覧 ─────────────────────────────────────────────────────
+export async function fetchRaces(params = {}) {
+  if (await ping()) {
+    const q = new URLSearchParams(
+      Object.fromEntries(Object.entries(params).filter(([, v]) => v))
+    ).toString();
+    return apiFetch(`/races${q ? '?' + q : ''}`);
+  }
+  return null;
+}
+
+// ── レース予測＋買い方提案 ────────────────────────────────────────────
+export async function fetchRacePrediction(raceId, budget = 5000) {
+  if (await ping()) {
+    return apiFetch(`/races/${raceId}/prediction?budget=${budget}`);
+  }
+  return null;
+}
+
+// ── 週間の買い方プラン（複数レースに5,000円を配分） ───────────────────
+export async function fetchWeeklyPlan(dateFrom, dateTo, budget = 5000) {
+  if (await ping()) {
+    return apiFetch(`/races/weekly/plan?date_from=${dateFrom}&date_to=${dateTo}&budget=${budget}`);
+  }
+  return null;
+}

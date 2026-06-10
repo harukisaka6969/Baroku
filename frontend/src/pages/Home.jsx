@@ -4,6 +4,7 @@ import SearchBar from '../components/SearchBar.jsx';
 import HorseCard from '../components/HorseCard.jsx';
 import { mockHorses, getFarms, upcomingRaces, getHorseById } from '../mockData.js';
 import PredictionPanel from '../components/PredictionPanel.jsx';
+import WeeklyBettingPlan from '../components/WeeklyBettingPlan.jsx';
 
 const SEX_OPTIONS    = ['牡', '牝'];
 const STATUS_OPTIONS = ['現役', '種牡馬', '繁殖牝馬', '引退'];
@@ -20,6 +21,7 @@ const TABS = [
   { id: 'farm',     label: '牧場から選ぶ' },
   { id: 'schedule', label: '今週のレース' },
   { id: 'predict',  label: '🎯 週末予想' },
+  { id: 'betting',  label: '💰 今週の買い目' },
 ];
 
 function FarmSection() {
@@ -273,6 +275,13 @@ export default function Home() {
         {tab === 'predict' && (
           <div className="max-w-2xl">
             <PredictionPanel />
+          </div>
+        )}
+
+        {/* Tab: 今週の買い目（AIモデル + 買い方提案） */}
+        {tab === 'betting' && (
+          <div className="max-w-3xl">
+            <WeeklyBettingPlan />
           </div>
         )}
       </main>

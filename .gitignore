@@ -8,6 +8,7 @@ frontend/.env.local
 **/*.pyc
 backend/baroku.db
 backend/.env
+backend/app/ml/artifacts/
 .env
 .venv
 venv/

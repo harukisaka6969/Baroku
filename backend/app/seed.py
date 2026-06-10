@@ -2,8 +2,9 @@
 初回起動時にDBが空の場合、モックデータを投入する。
 スクレイパー実行後は本物データで上書きされる。
 """
+import random
 from sqlalchemy.orm import Session
-from .models import Horse, Race, Title
+from .models import Horse, Race, Title, JraRace, RaceEntry
 
 SEED_HORSES = [
     dict(name="ディープインパクト", name_en="Deep Impact", born_year=2002, sex="牡", color="鹿毛",
@@ -97,4 +98,92 @@ def seed_if_empty(db: Session) -> bool:
     for h in SEED_HORSES:
         db.add(Horse(**h))
     db.commit()
+
+    seed_jra_races(db)
     return True
+
+
+# ── JRA レースサンプルデータ ─────────────────────────────────────────────
+# モデルの初回学習に必要な「確定済みレース結果」のサンプルと、
+# 予測・買い方提案のデモ用「今週の出走表」を投入する。
+
+_PAST_RACES = [
+    dict(date="2024-10-27", racecourse="東京", race_number=11, race_name="天皇賞（秋）",
+         grade="G1", surface="芝", distance=2000, direction="左", track_condition="良", weather="晴"),
+    dict(date="2024-11-24", racecourse="東京", race_number=11, race_name="ジャパンカップ",
+         grade="G1", surface="芝", distance=2400, direction="左", track_condition="良", weather="曇"),
+    dict(date="2024-12-22", racecourse="中山", race_number=11, race_name="有馬記念",
+         grade="G1", surface="芝", distance=2500, direction="右", track_condition="稍重", weather="曇"),
+]
+
+_UPCOMING_RACE = dict(
+    date="2026-06-14", racecourse="東京", race_number=11, race_name="安田記念",
+    grade="G1", surface="芝", distance=1600, direction="左", track_condition="良", weather="晴",
+    weekly_budget=5000,
+)
+
+
+def seed_jra_races(db: Session) -> None:
+    horses = db.query(Horse).order_by(Horse.id).all()
+    if not horses:
+        return
+
+    rng = random.Random(42)
+
+    # 過去の確定済みレース（モデル学習用データ）
+    for race_def in _PAST_RACES:
+        race = JraRace(**race_def)
+        db.add(race)
+        db.flush()
+
+        order = list(range(len(horses)))
+        rng.shuffle(order)
+
+        for rank, idx in enumerate(order, start=1):
+            horse = horses[idx]
+            db.add(RaceEntry(
+                race_id=race.id,
+                horse_id=horse.id,
+                post_position=(rank - 1) % 8 + 1,
+                horse_number=rank,
+                jockey=horse.jockey,
+                weight_carried=57.0 if horse.sex == "牡" else 55.0,
+                horse_weight=460 + rng.randint(-20, 20),
+                horse_weight_diff=rng.randint(-6, 6),
+                training_time=round(11.0 + rng.random() * 2.5, 1),
+                training_eval=rng.choice(["A", "B", "B", "C"]),
+                odds_win=round(1.5 + rank * 1.8 + rng.random() * 2, 1),
+                odds_place_low=round(1.1 + rank * 0.4, 1),
+                odds_place_high=round(1.3 + rank * 0.5, 1),
+                popularity=rank,
+                result_position=rank,
+            ))
+
+    # 今週のレース（予測・買い方提案デモ用、結果未確定）
+    upcoming = JraRace(**_UPCOMING_RACE)
+    db.add(upcoming)
+    db.flush()
+
+    order = list(range(len(horses)))
+    rng.shuffle(order)
+    for num, idx in enumerate(order, start=1):
+        horse = horses[idx]
+        db.add(RaceEntry(
+            race_id=upcoming.id,
+            horse_id=horse.id,
+            post_position=(num - 1) % 8 + 1,
+            horse_number=num,
+            jockey=horse.jockey,
+            weight_carried=57.0 if horse.sex == "牡" else 55.0,
+            horse_weight=460 + rng.randint(-20, 20),
+            horse_weight_diff=rng.randint(-6, 6),
+            training_time=round(11.0 + rng.random() * 2.5, 1),
+            training_eval=rng.choice(["A", "B", "B", "C"]),
+            odds_win=round(1.5 + num * 1.8 + rng.random() * 2, 1),
+            odds_place_low=round(1.1 + num * 0.4, 1),
+            odds_place_high=round(1.3 + num * 0.5, 1),
+            popularity=num,
+            result_position=None,
+        ))
+
+    db.commit()
