@@ -63,6 +63,20 @@ def previous_weekend_dates(today: Optional[date] = None) -> list[str]:
     return [last_saturday.strftime("%Y%m%d"), last_sunday.strftime("%Y%m%d")]
 
 
+def historical_weekend_dates(weeks: int, today: Optional[date] = None) -> list[str]:
+    """直近 `weeks` 週分の過去の土日を YYYYMMDD のリストで返す（バックフィル用）。"""
+    sat_str, _ = previous_weekend_dates(today)
+    saturday = date(int(sat_str[:4]), int(sat_str[4:6]), int(sat_str[6:]))
+
+    dates: list[str] = []
+    for i in range(weeks):
+        sat = saturday - timedelta(days=7 * i)
+        sun = sat + timedelta(days=1)
+        dates.append(sat.strftime("%Y%m%d"))
+        dates.append(sun.strftime("%Y%m%d"))
+    return dates
+
+
 # ── HTML 解析ヘルパー ──────────────────────────────────────────────────
 
 def _to_int(s: str) -> Optional[int]:
@@ -158,11 +172,9 @@ async def fetch_shutuba(client: httpx.AsyncClient, race_id: str) -> Optional[dic
         return None
 
 
-def parse_shutuba(html: str, race_id: str) -> dict:
-    soup = BeautifulSoup(html, "html.parser")
-    data: dict = {"race_id": race_id, "entries": []}
-
-    # レース概要（距離・馬場・グレード）はページ上部のテキストから正規表現で抽出
+def _parse_race_header(soup: BeautifulSoup) -> dict:
+    """ページ上部のテキストからレース概要（距離・馬場・グレード等）を正規表現で抽出する。"""
+    data: dict = {}
     header_text = soup.get_text(" ", strip=True)[:1000]
 
     m = re.search(r"(芝|ダ|障)\s*(右|左|直線)?\s*(\d{3,4})m", header_text)
@@ -183,6 +195,14 @@ def parse_shutuba(html: str, race_id: str) -> dict:
 
     h1 = soup.find("h1")
     data["race_name"] = h1.get_text(strip=True) if h1 else None
+
+    return data
+
+
+def parse_shutuba(html: str, race_id: str) -> dict:
+    soup = BeautifulSoup(html, "html.parser")
+    data: dict = {"race_id": race_id, "entries": []}
+    data.update(_parse_race_header(soup))
 
     # 出走馬一覧テーブル
     table, headers = _find_table_by_headers(soup, ["馬番", "馬名"])
@@ -260,6 +280,73 @@ def parse_results(html: str, race_id: str) -> dict:
         data["results"][int(num_str)] = int(pos_str)
 
     data["finished"] = len(data["results"]) > 0
+    return data
+
+
+# ── 過去レースの結果ページ（出走馬情報＋着順をまとめて取得）──────────────
+
+async def fetch_result_entries(client: httpx.AsyncClient, race_id: str) -> Optional[dict]:
+    """確定済みレースの結果ページから、出走馬情報と着順をまとめて取得する（バックフィル用）。"""
+    url = f"{RACE_BASE}/race/result.html?race_id={race_id}"
+    try:
+        resp = await client.get(url, headers=HEADERS, follow_redirects=True, timeout=15.0)
+        resp.raise_for_status()
+        html = resp.content.decode("EUC-JP", errors="replace")
+        return parse_result_full(html, race_id)
+    except Exception as e:
+        logger.error(f"result entries fetch failed ({race_id}): {e}")
+        return None
+
+
+def parse_result_full(html: str, race_id: str) -> dict:
+    soup = BeautifulSoup(html, "html.parser")
+    data: dict = {"race_id": race_id, "entries": [], "finished": False}
+    data.update(_parse_race_header(soup))
+
+    table, headers = _find_table_by_headers(soup, ["着順", "馬番", "馬名"])
+    if not table:
+        return data
+
+    col_map = {h: i for i, h in enumerate(headers)}
+
+    def cell(tds, key, fallback=""):
+        idx = col_map.get(key)
+        return tds[idx].get_text(strip=True) if idx is not None and idx < len(tds) else fallback
+
+    for tr in table.find_all("tr")[1:]:
+        tds = tr.find_all("td")
+        if len(tds) < 3:
+            continue
+
+        pos_str = cell(tds, "着順")
+        if not pos_str.isdigit():
+            continue
+
+        horse_link = tr.find("a", href=re.compile(r"/horse/\w+"))
+        netkeiba_horse_id = None
+        if horse_link:
+            hm = re.search(r"/horse/(\w+)", horse_link["href"])
+            netkeiba_horse_id = hm.group(1) if hm else None
+
+        weight_str = cell(tds, "斤量")
+        horse_weight_str = cell(tds, "馬体重")
+        wm = re.match(r"(\d+)\(([+-]?\d+)\)", horse_weight_str)
+
+        data["entries"].append({
+            "netkeiba_horse_id": netkeiba_horse_id,
+            "horse_name": horse_link.get_text(strip=True) if horse_link else cell(tds, "馬名"),
+            "post_position": _to_int(cell(tds, "枠")),
+            "horse_number": _to_int(cell(tds, "馬番")),
+            "jockey": cell(tds, "騎手"),
+            "weight_carried": _to_float(weight_str),
+            "horse_weight": int(wm.group(1)) if wm else None,
+            "horse_weight_diff": int(wm.group(2)) if wm else None,
+            "odds_win": _to_float(cell(tds, "単勝")),
+            "popularity": _to_int(cell(tds, "人気")),
+            "result_position": int(pos_str),
+        })
+
+    data["finished"] = len(data["entries"]) > 0
     return data
 
 

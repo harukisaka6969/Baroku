@@ -114,6 +114,20 @@ async def trigger_scrape_races(
     return {"message": "週次データ取得ジョブを開始しました（バックグラウンド実行）"}
 
 
+@app.post("/admin/backfill")
+async def trigger_backfill(
+    weeks: int = 26,
+    x_admin_secret: str = Header(default=""),
+):
+    """過去レース結果をまとめて取得し、学習データを増やす（ADMIN_SECRET が必要）。"""
+    if ADMIN_SECRET and x_admin_secret != ADMIN_SECRET:
+        raise HTTPException(status_code=403, detail="Invalid secret")
+
+    from .scraper.backfill import run_backfill
+    asyncio.create_task(run_backfill(weeks))
+    return {"message": f"過去{weeks}週分のデータ取得を開始しました（バックグラウンド実行）"}
+
+
 @app.post("/admin/train", response_model=schemas.TrainResultSchema)
 async def trigger_train(
     x_admin_secret: str = Header(default=""),
