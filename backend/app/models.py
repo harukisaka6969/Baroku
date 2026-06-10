@@ -7,6 +7,7 @@ class Horse(Base):
     __tablename__ = "horses"
 
     id = Column(Integer, primary_key=True, index=True)
+    netkeiba_id = Column(String, index=True, unique=True, nullable=True)
     name = Column(String, index=True, nullable=False)
     name_en = Column(String)
     born_year = Column(Integer)
@@ -78,6 +79,7 @@ class JraRace(Base):
     __tablename__ = "jra_races"
 
     id = Column(Integer, primary_key=True, index=True)
+    netkeiba_race_id = Column(String, index=True, unique=True, nullable=True)  # 結果取得時の参照用
     date = Column(String, nullable=False)            # YYYY-MM-DD
     racecourse = Column(String, nullable=False)       # 東京, 中山, ... (JRA_RACECOURSES のいずれか)
     race_number = Column(Integer)                     # 第何レース

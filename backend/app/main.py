@@ -3,6 +3,9 @@ from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 import os, asyncio, logging
 from dotenv import load_dotenv
+from zoneinfo import ZoneInfo
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -13,8 +16,15 @@ from .routers import horses, prediction, races
 from .seed import seed_if_empty
 from .ml.train import train_model
 from .ml.predict import reload_model
+from .scraper.run_weekly import run_weekly_job
 
 ADMIN_SECRET = os.getenv("ADMIN_SECRET", "")
+
+ENABLE_SCHEDULER = os.getenv("ENABLE_SCHEDULER", "true").lower() == "true"
+SCRAPE_DAY_OF_WEEK = os.getenv("SCRAPE_DAY_OF_WEEK", "mon")  # 毎週月曜（前週の結果＋今週末の出馬表を取得）
+SCRAPE_HOUR = int(os.getenv("SCRAPE_HOUR", "4"))             # 日本時間 4:00
+
+scheduler = AsyncIOScheduler(timezone=ZoneInfo("Asia/Tokyo"))
 
 
 @asynccontextmanager
@@ -34,7 +44,23 @@ async def lifespan(app: FastAPI):
             logger.info(f"予測モデルは未学習です: {result.get('reason')}")
     finally:
         db.close()
+
+    if ENABLE_SCHEDULER:
+        scheduler.add_job(
+            run_weekly_job,
+            CronTrigger(day_of_week=SCRAPE_DAY_OF_WEEK, hour=SCRAPE_HOUR, minute=0),
+            id="weekly_jra_scrape",
+            replace_existing=True,
+        )
+        scheduler.start()
+        logger.info(
+            f"週次データ取得ジョブを登録しました（毎週 {SCRAPE_DAY_OF_WEEK} {SCRAPE_HOUR}:00 JST）"
+        )
+
     yield
+
+    if ENABLE_SCHEDULER:
+        scheduler.shutdown(wait=False)
 
 
 app = FastAPI(title="馬録 API", version="0.1.0", lifespan=lifespan)
@@ -74,6 +100,18 @@ async def trigger_scrape(
     from .scraper.run_scraper import main as run_scraper, DEFAULT_HORSE_IDS
     asyncio.create_task(run_scraper(DEFAULT_HORSE_IDS))
     return {"message": f"スクレイプ開始: {len(DEFAULT_HORSE_IDS)} 頭（バックグラウンド実行）"}
+
+
+@app.post("/admin/scrape-races")
+async def trigger_scrape_races(
+    x_admin_secret: str = Header(default=""),
+):
+    """JRAレースの出馬表・結果を手動取得し、モデルを再学習する（ADMIN_SECRET が必要）。"""
+    if ADMIN_SECRET and x_admin_secret != ADMIN_SECRET:
+        raise HTTPException(status_code=403, detail="Invalid secret")
+
+    asyncio.create_task(run_weekly_job())
+    return {"message": "週次データ取得ジョブを開始しました（バックグラウンド実行）"}
 
 
 @app.post("/admin/train", response_model=schemas.TrainResultSchema)
