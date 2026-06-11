@@ -3,9 +3,10 @@ import Disclaimer from './Disclaimer.jsx';
 import { getVenues, getRacesByVenue, getHorseById } from '../mockData.js';
 
 const MODES = [
-  { id: 'safe',     icon: '🔒', label: '確勝' },
-  { id: 'balanced', icon: '⚖',  label: 'バランス' },
-  { id: 'risky',    icon: '🔥', label: '穴狙い' },
+  { id: 'ultra_safe', icon: '🛡', label: '鉄板' },
+  { id: 'safe',       icon: '🔒', label: '確勝' },
+  { id: 'balanced',   icon: '⚖',  label: 'バランス' },
+  { id: 'risky',      icon: '🔥', label: '穴狙い' },
 ];
 
 const GRADE_COLORS = {
@@ -15,18 +16,37 @@ const GRADE_COLORS = {
   'OP': 'bg-stone-100 text-stone-500 border-stone-200',
 };
 
-const BET_LABELS   = { safe: '単勝 / 複勝', balanced: '馬連 / ワイド', risky: '三連複 / 馬単' };
-const ODDS_LABELS  = { safe: '1〜3倍',       balanced: '5〜20倍',        risky: '30倍〜' };
+const BET_LABELS   = { ultra_safe: '複勝（分散買い）', safe: '単勝 / 複勝', balanced: '馬連 / ワイド', risky: '三連複 / 馬単' };
+const ODDS_LABELS  = { ultra_safe: '1.0〜1.5倍',        safe: '1〜3倍',       balanced: '5〜20倍',        risky: '30倍〜' };
 const WEIGHTS = {
-  safe:     { win: 0.40, stability: 0.30, pedigree: 0.20, dark: 0.00, course: 0.10 },
-  balanced: { win: 0.30, stability: 0.20, pedigree: 0.20, dark: 0.15, course: 0.15 },
-  risky:    { win: 0.10, stability: 0.05, pedigree: 0.20, dark: 0.40, course: 0.25 },
+  ultra_safe: { win: 0.45, stability: 0.35, pedigree: 0.15, dark: 0.00, course: 0.05 },
+  safe:       { win: 0.40, stability: 0.30, pedigree: 0.20, dark: 0.00, course: 0.10 },
+  balanced:   { win: 0.30, stability: 0.20, pedigree: 0.20, dark: 0.15, course: 0.15 },
+  risky:      { win: 0.10, stability: 0.05, pedigree: 0.20, dark: 0.40, course: 0.25 },
 };
 const REASONS = {
-  safe:     ['安定感抜群', '本命視の実績', '信頼の実力馬'],
-  balanced: ['血統の底力', '上昇気配あり', 'コース適性◎'],
-  risky:    ['大穴一発', '巻き返し期待', '人気薄の伏兵'],
+  ultra_safe: ['崩れない安定感', '複勝圏内が濃厚', '堅実な人気馬'],
+  safe:       ['安定感抜群', '本命視の実績', '信頼の実力馬'],
+  balanced:   ['血統の底力', '上昇気配あり', 'コース適性◎'],
+  risky:      ['大穴一発', '巻き返し期待', '人気薄の伏兵'],
 };
+
+// 推奨頭数（この頭数に軍資金を分散配分する）
+const PICK_COUNT = { ultra_safe: 3, safe: 2, balanced: 3, risky: 5 };
+
+const MIN_BUDGET = 1000;
+const MAX_BUDGET = 100000;
+const BUDGET_UNIT = 100; // 馬券は100円単位
+
+// 軍資金を頭数で分散（100円単位、端数は1頭目に寄せる）
+function allocateBudget(budget, count) {
+  const n = Math.max(1, count);
+  const totalUnits = Math.floor(budget / BUDGET_UNIT);
+  const baseUnits = Math.floor(totalUnits / n);
+  const base = baseUnits * BUDGET_UNIT;
+  const remainder = budget - base * n;
+  return Array.from({ length: n }, (_, i) => base + (i === 0 ? remainder : 0));
+}
 
 function calcPrediction(entries, mode) {
   const w = WEIGHTS[mode];
@@ -54,6 +74,7 @@ export default function PredictionPanel() {
   const [venue, setVenue]       = useState(null);
   const [race, setRace]         = useState(null);
   const [mode, setMode]         = useState('balanced');
+  const [budget, setBudget]     = useState(5000);
 
   const venues     = getVenues(weekend);
   const activeVenue = venue || venues[0];
@@ -61,6 +82,15 @@ export default function PredictionPanel() {
   const activeRace = race?.weekend === weekend && race?.venue === activeVenue ? race : null;
   const entries    = activeRace ? activeRace.entries.map(id => getHorseById(id)).filter(Boolean) : [];
   const prediction = accepted && activeRace ? calcPrediction(entries, mode) : [];
+
+  const pickCount = Math.min(PICK_COUNT[mode] ?? prediction.length, prediction.length);
+  const stakes    = allocateBudget(budget, pickCount);
+
+  const handleBudgetChange = (value) => {
+    const n = Number(value);
+    if (Number.isNaN(n)) return;
+    setBudget(Math.min(MAX_BUDGET, Math.max(MIN_BUDGET, Math.round(n / BUDGET_UNIT) * BUDGET_UNIT)));
+  };
 
   return (
     <div className="space-y-5">
@@ -152,6 +182,34 @@ export default function PredictionPanel() {
               ))}
             </div>
 
+            {/* Budget control */}
+            <div className="bg-stone-50 rounded-xl p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-stone-400 font-sans">軍資金</span>
+                <div className="flex items-center gap-1">
+                  <span className="font-mono text-sm text-stone-500">¥</span>
+                  <input
+                    type="number"
+                    min={MIN_BUDGET}
+                    max={MAX_BUDGET}
+                    step={BUDGET_UNIT}
+                    value={budget}
+                    onChange={e => handleBudgetChange(e.target.value)}
+                    className="w-24 font-mono text-sm font-bold text-stone-900 bg-white border border-stone-200 rounded-lg px-2 py-1 text-right"
+                  />
+                </div>
+              </div>
+              <input
+                type="range"
+                min={MIN_BUDGET}
+                max={MAX_BUDGET}
+                step={BUDGET_UNIT}
+                value={budget}
+                onChange={e => handleBudgetChange(e.target.value)}
+                className="w-full accent-gold"
+              />
+            </div>
+
             {/* Visual horse ranking */}
             <div className="space-y-2">
               {prediction.map(({ horse: h, confidence, reason }, i) => (
@@ -172,8 +230,15 @@ export default function PredictionPanel() {
                       />
                     </div>
                   </div>
-                  <div className={`font-mono text-sm font-bold shrink-0 ${i === 0 ? 'text-gold' : 'text-stone-400'}`}>
-                    {confidence}%
+                  <div className="flex flex-col items-end gap-0.5 shrink-0">
+                    <span className={`font-mono text-sm font-bold ${i === 0 ? 'text-gold' : 'text-stone-400'}`}>
+                      {confidence}%
+                    </span>
+                    {i < pickCount && (
+                      <span className="text-[10px] font-mono bg-stone-900 text-white rounded px-1.5 py-0.5">
+                        ¥{stakes[i].toLocaleString()}
+                      </span>
+                    )}
                   </div>
                 </div>
               ))}
@@ -190,6 +255,12 @@ export default function PredictionPanel() {
                 <div className="text-sm font-mono font-medium text-stone-800 mt-0.5">{ODDS_LABELS[mode]}</div>
               </div>
             </div>
+
+            {mode === 'ultra_safe' && (
+              <p className="text-xs text-stone-400 font-sans bg-stone-50 rounded-xl p-3 leading-relaxed">
+                上位{pickCount}頭の複勝に軍資金¥{budget.toLocaleString()}を分散配分しています。的中率は高めですが、複勝オッズは低いため、的中しても合計の払戻が購入額を下回る（マイナス収支になる）場合があります。
+              </p>
+            )}
           </div>
         )}
 
