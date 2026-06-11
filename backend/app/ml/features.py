@@ -18,6 +18,7 @@ FEATURE_NAMES = [
     "sire_score",        # 血統（父）の複勝率エンコーディング
     "jockey_score",      # 騎手の複勝率エンコーディング
     "trainer_score",     # 調教師の複勝率エンコーディング
+    "stable_score",      # 所属トレーニングセンター（美浦/栗東）の複勝率エンコーディング
     "farm_score",        # 生産牧場の複勝率エンコーディング
     "course_dist_score", # 競馬場×コース×距離適性
     "surface_score",     # 芝・ダート適性
@@ -62,6 +63,7 @@ def entry_feature_vector(entry, horse, race, encoders: Encoders) -> list[float]:
     feats["sire_score"] = encoders.score("sire", horse.sire)
     feats["jockey_score"] = encoders.score("jockey", entry.jockey or horse.jockey)
     feats["trainer_score"] = encoders.score("trainer", horse.trainer)
+    feats["stable_score"] = encoders.score("stable", horse.stable)
     feats["farm_score"] = encoders.score("farm", horse.farm)
     feats["course_dist_score"] = encoders.score(
         "course_dist", course_dist_key(race.racecourse, race.surface, race.distance)

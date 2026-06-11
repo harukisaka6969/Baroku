@@ -110,6 +110,11 @@ def parse_horse_page(html: str, horse_id: str) -> dict:
                 data["color"] = val
             elif key == "調教師":
                 data["trainer"] = re.sub(r"\s+", " ", val).strip()
+                # 調教師欄の「美浦」「栗東」または「[東]」「[西]」表記からトレーニングセンターを判定
+                if "美浦" in val or re.search(r"[\[（(]東[\]）)]", val):
+                    data["stable"] = "美浦"
+                elif "栗東" in val or re.search(r"[\[（(]西[\]）)]", val):
+                    data["stable"] = "栗東"
             elif key == "馬主":
                 data["owner"] = val
             elif key == "生産者":

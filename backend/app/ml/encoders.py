@@ -74,6 +74,7 @@ def build_encoders(db) -> Encoders:
     sire_rows = [(horse.sire, t) for (entry, horse, race), t in zip(rows, is_top3_list)]
     jockey_rows = [((entry.jockey or horse.jockey), t) for (entry, horse, race), t in zip(rows, is_top3_list)]
     trainer_rows = [(horse.trainer, t) for (entry, horse, race), t in zip(rows, is_top3_list)]
+    stable_rows = [(horse.stable, t) for (entry, horse, race), t in zip(rows, is_top3_list)]
     farm_rows = [(horse.farm, t) for (entry, horse, race), t in zip(rows, is_top3_list)]
     course_dist_rows = [
         (course_dist_key(race.racecourse, race.surface, race.distance), t)
@@ -85,6 +86,7 @@ def build_encoders(db) -> Encoders:
         "sire": _build_table(sire_rows, global_mean),
         "jockey": _build_table(jockey_rows, global_mean),
         "trainer": _build_table(trainer_rows, global_mean),
+        "stable": _build_table(stable_rows, global_mean),
         "farm": _build_table(farm_rows, global_mean),
         "course_dist": _build_table(course_dist_rows, global_mean),
         "surface": _build_table(surface_rows, global_mean),

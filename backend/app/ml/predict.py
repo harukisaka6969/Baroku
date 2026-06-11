@@ -30,8 +30,8 @@ def reload_model() -> None:
 _HEURISTIC_WEIGHTS = {
     "win_rate": 0.20, "g1_wins": 0.05, "win_ratio": 0.10, "place_ratio": 0.10,
     "earnings_log": 0.05, "age": -0.02,
-    "sire_score": 0.10, "jockey_score": 0.10, "trainer_score": 0.08, "farm_score": 0.05,
-    "course_dist_score": 0.10, "surface_score": 0.05,
+    "sire_score": 0.10, "jockey_score": 0.10, "trainer_score": 0.08, "stable_score": 0.05,
+    "farm_score": 0.05, "course_dist_score": 0.10, "surface_score": 0.05,
     "training_score": 0.08, "post_position": -0.02, "popularity_score": 0.10,
     "weight_carried": -0.02, "weight_diff": 0.0,
 }

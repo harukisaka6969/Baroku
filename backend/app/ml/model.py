@@ -85,7 +85,11 @@ class PredictionModel:
         import joblib
         if os.path.exists(MODEL_PATH):
             try:
-                return joblib.load(MODEL_PATH)
+                model = joblib.load(MODEL_PATH)
+                if model.feature_names != FEATURE_NAMES:
+                    logger.warning("特徴量の構成が変更されたため、モデルを再学習するまで未学習として扱います")
+                    return cls()
+                return model
             except Exception as e:
                 logger.warning(f"モデル読み込み失敗、新規作成します: {e}")
         return cls()
