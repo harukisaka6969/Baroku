@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from ..database import get_db
 from .. import models, schemas
+from ..ml.train import load_model, predict_score
 import random
 
 router = APIRouter(prefix="/prediction", tags=["prediction"])
@@ -30,10 +31,30 @@ ODDS_RANGES = {
 }
 
 REASONS = {
-    "ultra_safe": ["崩れない安定感で複勝圏内が濃厚", "堅実な人気馬で大きな波乱は考えにくい", "上位互換不在の鉄板評価"],
-    "safe": ["勝率の高さと安定感が光る", "過去の実績から本命視", "調教師の腕と安定した成績"],
-    "balanced": ["血統の底力に期待", "直近の成績から上昇気配", "コース適性が高い"],
-    "risky": ["人気薄での一発に期待", "前走からの巻き返し候補", "穴馬として大穴を狙う"],
+    "ultra_safe": [
+        "崩れない安定感で複勝圏内が濃厚",
+        "堅実な人気馬で大きな波乱は考えにくい",
+        "上位互換不在の鉄板評価",
+        "管理厩舎・鞍上ともに信頼度が高い",
+    ],
+    "safe": [
+        "勝率の高さと安定感が光る",
+        "過去の実績から本命視",
+        "調教師の腕と安定した成績",
+        "得意なコースでの実績が豊富",
+    ],
+    "balanced": [
+        "血統の底力に期待",
+        "直近の成績から上昇気配",
+        "コース適性が高い",
+        "騎手との相性が良く崩れにくい",
+    ],
+    "risky": [
+        "人気薄での一発に期待",
+        "前走からの巻き返し候補",
+        "穴馬として大穴を狙う",
+        "血統的な素質はあるが人気は伸び悩み",
+    ],
 }
 
 # 推奨頭数（軍資金をこの頭数に分散配分する）
@@ -64,21 +85,32 @@ def generate_prediction(
         raise HTTPException(status_code=404, detail="No horses found for given IDs")
 
     w = WEIGHTS[request.mode]
+    model = load_model(db)
+
     scored = []
     for horse in horses:
         total_races = max(horse.wins + horse.losses, 1)
         win_score = (horse.win_rate / 100) * w["win_rate"] * 100
         stability = (horse.wins / total_races) * w["stability"] * 100
-        pedigree = min(horse.g1_wins / 10, 1.0) * w["pedigree"] * 100
         dark_horse = (1 - horse.win_rate / 100) * w["dark_horse"] * 100
-        course = random.random() * w["course"] * 100
-        total = win_score + stability + pedigree + dark_horse + course
+
+        # 血統・騎手・調教師・管理牧場・コース実績はニューラルネットの能力スコアに集約
+        ml_score = predict_score(db, model, horse)
+        ml_component = ml_score * (w["pedigree"] + w["course"]) * 100
+
+        total = win_score + stability + dark_horse + ml_component
         confidence = min(int(total), 98)
 
         reason = random.choice(REASONS[request.mode])
         scored.append((horse, confidence, reason))
 
     scored.sort(key=lambda x: x[1], reverse=True)
+
+    ranking = [
+        schemas.HorseScore(horse_id=h.id, horse_name=h.name, reason=reason, confidence=confidence)
+        for h, confidence, reason in scored
+    ]
+
     limit = min(PICK_COUNTS.get(request.mode, len(scored)), len(scored))
     top = scored[:limit]
 
@@ -96,6 +128,7 @@ def generate_prediction(
     ]
 
     return schemas.PredictionResponse(
+        ranking=ranking,
         recommendations=recommendations,
         bet_type=BET_TYPES[request.mode],
         odds_range=ODDS_RANGES[request.mode],

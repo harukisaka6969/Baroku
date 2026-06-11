@@ -67,3 +67,14 @@ class Title(Base):
     title_name = Column(String)
 
     horse = relationship("Horse", back_populates="titles")
+
+
+class ModelWeights(Base):
+    """予想モデル（ニューラルネット）の学習済み重みを保存するテーブル。"""
+    __tablename__ = "model_weights"
+
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String, unique=True, index=True, nullable=False)
+    weights_json = Column(String, nullable=False)
+    trained_samples = Column(Integer, default=0)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

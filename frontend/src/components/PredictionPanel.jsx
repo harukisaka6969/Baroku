@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Disclaimer from './Disclaimer.jsx';
 import { getVenues, getRacesByVenue, getHorseById } from '../mockData.js';
+import { postPrediction } from '../api.js';
 
 const MODES = [
   { id: 'ultra_safe', icon: '🛡', label: '鉄板' },
@@ -76,15 +77,42 @@ export default function PredictionPanel() {
   const [mode, setMode]         = useState('balanced');
   const [budget, setBudget]     = useState(5000);
 
+  const [apiResult, setApiResult] = useState(null);
+
   const venues     = getVenues(weekend);
   const activeVenue = venue || venues[0];
   const races      = getRacesByVenue(weekend, activeVenue);
   const activeRace = race?.weekend === weekend && race?.venue === activeVenue ? race : null;
   const entries    = activeRace ? activeRace.entries.map(id => getHorseById(id)).filter(Boolean) : [];
-  const prediction = accepted && activeRace ? calcPrediction(entries, mode) : [];
 
-  const pickCount = Math.min(PICK_COUNT[mode] ?? prediction.length, prediction.length);
-  const stakes    = allocateBudget(budget, pickCount);
+  // バックエンドのAI予想モデル（血統・騎手・調教師・牧場・コース実績を学習）を呼び出す。
+  // 利用できない場合はクライアント側の簡易ロジックにフォールバック。
+  useEffect(() => {
+    let cancelled = false;
+    if (!accepted || !activeRace || entries.length === 0) {
+      setApiResult(null);
+      return;
+    }
+    postPrediction({ horse_ids: entries.map(h => h.id), mode })
+      .then(res => { if (!cancelled) setApiResult(res); })
+      .catch(() => { if (!cancelled) setApiResult(null); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accepted, activeRace?.id, mode]);
+
+  const prediction = apiResult
+    ? apiResult.ranking
+        .map(r => {
+          const horse = getHorseById(r.horse_id);
+          return horse ? { horse, confidence: r.confidence, reason: r.reason } : null;
+        })
+        .filter(Boolean)
+    : (accepted && activeRace ? calcPrediction(entries, mode) : []);
+
+  const pickCount = apiResult
+    ? apiResult.recommendations.length
+    : Math.min(PICK_COUNT[mode] ?? prediction.length, prediction.length);
+  const stakes = allocateBudget(budget, pickCount);
 
   const handleBudgetChange = (value) => {
     const n = Number(value);

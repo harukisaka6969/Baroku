@@ -11,6 +11,7 @@ from .database import engine, SessionLocal
 from . import models
 from .routers import horses, prediction
 from .seed import seed_if_empty
+from .ml.train import retrain
 
 ADMIN_SECRET = os.getenv("ADMIN_SECRET", "")
 
@@ -23,6 +24,7 @@ async def lifespan(app: FastAPI):
         seeded = seed_if_empty(db)
         if seeded:
             logger.info("DB が空だったため初期データを投入しました")
+        retrain(db)
     finally:
         db.close()
     yield
