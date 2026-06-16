@@ -34,6 +34,7 @@ class Horse(Base):
     wins = Column(Integer, default=0)
     losses = Column(Integer, default=0)
     places = Column(Integer, default=0)
+    netkeiba_id = Column(String, unique=True, index=True)  # netkeibaの馬ID（重複検出・スキップ用）
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
