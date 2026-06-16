@@ -2,7 +2,6 @@ services:
   - type: web
     name: baroku-api
     env: python
-    pythonVersion: "3.11.0"
     rootDir: backend
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
@@ -17,6 +16,25 @@ services:
         value: "2"
       - key: ADMIN_SECRET
         generateValue: true
+      - key: PYTHON_VERSION
+        value: "3.11.0"
+
+  # 毎週月曜 12:00 JST（03:00 UTC）に自動実行
+  # 直近2週間のレース + 今後2週間の出走予定から新規馬を自動収集・学習
+  - type: cron
+    name: baroku-weekly-discover
+    env: python
+    rootDir: backend
+    schedule: "0 3 * * 1"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m app.scraper.run_scraper --discover --days-back 14 --days-forward 14
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: baroku-db
+          property: connectionString
+      - key: SCRAPER_DELAY
+        value: "2"
       - key: PYTHON_VERSION
         value: "3.11.0"
 
