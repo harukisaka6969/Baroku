@@ -63,6 +63,6 @@ async def trigger_scrape(
     if ADMIN_SECRET and x_admin_secret != ADMIN_SECRET:
         raise HTTPException(status_code=403, detail="Invalid secret")
 
-    from .scraper.run_scraper import main as run_scraper, DEFAULT_HORSE_IDS
+    from .scraper.run_scraper import run as run_scraper, DEFAULT_HORSE_IDS
     asyncio.create_task(run_scraper(DEFAULT_HORSE_IDS))
     return {"message": f"スクレイプ開始: {len(DEFAULT_HORSE_IDS)} 頭（バックグラウンド実行）"}
