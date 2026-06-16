@@ -18,7 +18,7 @@ const GRADE_COLORS = {
 };
 
 const BET_LABELS   = { ultra_safe: '複勝（分散買い）', safe: '単勝 / 複勝', balanced: '馬連 / ワイド', risky: '三連複 / 馬単' };
-const ODDS_LABELS  = { ultra_safe: '1.0〜1.5倍',        safe: '1〜3倍',       balanced: '5〜20倍',        risky: '30倍〜' };
+const ODDS_LABELS  = { ultra_safe: '1.0〜1.5倍', safe: '1〜3倍', balanced: '5〜20倍', risky: '30倍〜' };
 const WEIGHTS = {
   ultra_safe: { win: 0.45, stability: 0.35, pedigree: 0.15, dark: 0.00, course: 0.05 },
   safe:       { win: 0.40, stability: 0.30, pedigree: 0.20, dark: 0.00, course: 0.10 },
@@ -32,21 +32,60 @@ const REASONS = {
   risky:      ['大穴一発', '巻き返し期待', '人気薄の伏兵'],
 };
 
-// 推奨頭数（この頭数に軍資金を分散配分する）
-const PICK_COUNT = { ultra_safe: 3, safe: 2, balanced: 3, risky: 5 };
-
 const MIN_BUDGET = 1000;
 const MAX_BUDGET = 100000;
-const BUDGET_UNIT = 100; // 馬券は100円単位
+const BUDGET_UNIT = 100;
 
-// 軍資金を頭数で分散（100円単位、端数は1頭目に寄せる）
-function allocateBudget(budget, count) {
-  const n = Math.max(1, count);
-  const totalUnits = Math.floor(budget / BUDGET_UNIT);
-  const baseUnits = Math.floor(totalUnits / n);
-  const base = baseUnits * BUDGET_UNIT;
-  const remainder = budget - base * n;
-  return Array.from({ length: n }, (_, i) => base + (i === 0 ? remainder : 0));
+// 比率配分（100円単位、端数は1点目に寄せる）
+function splitBudget(budget, ratios) {
+  const total = ratios.reduce((a, b) => a + b, 0);
+  const amounts = ratios.map(r => Math.floor(budget * r / total / BUDGET_UNIT) * BUDGET_UNIT);
+  const remainder = budget - amounts.reduce((a, b) => a + b, 0);
+  if (amounts.length > 0) amounts[0] += remainder;
+  return amounts;
+}
+
+// 馬名の表示（馬単は →、それ以外は -）
+function horseLabel(type, horses) {
+  const sep = type === '馬単' || type === '三連単' ? ' → ' : ' - ';
+  return horses.join(sep);
+}
+
+// モードごとの買い目プランを生成
+function buildBetPlan(rankedNames, mode, budget) {
+  const n = rankedNames.length;
+  if (n === 0) return [];
+
+  let items;
+  if (mode === 'ultra_safe') {
+    const tops = rankedNames.slice(0, Math.min(3, n));
+    items = tops.map(h => ({ type: '複勝', horses: [h], ratio: 1 }));
+  } else if (mode === 'safe') {
+    items = [
+      { type: '単勝', horses: [rankedNames[0]],                  ratio: 4 },
+      { type: '複勝', horses: [rankedNames[0]],                  ratio: 3 },
+      n > 1 ? { type: '複勝', horses: [rankedNames[1]],          ratio: 3 } : null,
+    ].filter(Boolean);
+  } else if (mode === 'balanced') {
+    items = [
+      { type: '単勝', horses: [rankedNames[0]],                              ratio: 2 },
+      n > 1 ? { type: '馬連', horses: [rankedNames[0], rankedNames[1]],     ratio: 3 } : null,
+      n > 1 ? { type: 'ワイド', horses: [rankedNames[0], rankedNames[1]],   ratio: 2 } : null,
+      n > 2 ? { type: 'ワイド', horses: [rankedNames[0], rankedNames[2]],   ratio: 3 } : null,
+    ].filter(Boolean);
+  } else if (mode === 'risky') {
+    items = [
+      n > 2 ? { type: '三連複', horses: rankedNames.slice(0, 3),            ratio: 4 } : null,
+      n > 1 ? { type: '馬単',   horses: [rankedNames[0], rankedNames[1]],   ratio: 2 } : null,
+      n > 1 ? { type: '馬単',   horses: [rankedNames[1], rankedNames[0]],   ratio: 2 } : null,
+      n > 2 ? { type: 'ワイド', horses: [rankedNames[0], rankedNames[2]],   ratio: 2 } : null,
+    ].filter(Boolean);
+  } else {
+    return [];
+  }
+
+  const amounts = splitBudget(budget, items.map(x => x.ratio));
+  return items.map((item, i) => ({ type: item.type, horses: item.horses, amount: amounts[i] }));
 }
 
 function calcPrediction(entries, mode) {
@@ -109,10 +148,8 @@ export default function PredictionPanel() {
         .filter(Boolean)
     : (accepted && activeRace ? calcPrediction(entries, mode) : []);
 
-  const pickCount = apiResult
-    ? apiResult.recommendations.length
-    : Math.min(PICK_COUNT[mode] ?? prediction.length, prediction.length);
-  const stakes = allocateBudget(budget, pickCount);
+  const rankedNames = prediction.map(p => p.horse.name);
+  const betPlan = (accepted && activeRace) ? buildBetPlan(rankedNames, mode, budget) : [];
 
   const handleBudgetChange = (value) => {
     const n = Number(value);
@@ -258,35 +295,45 @@ export default function PredictionPanel() {
                       />
                     </div>
                   </div>
-                  <div className="flex flex-col items-end gap-0.5 shrink-0">
-                    <span className={`font-mono text-sm font-bold ${i === 0 ? 'text-gold' : 'text-stone-400'}`}>
-                      {confidence}%
-                    </span>
-                    {i < pickCount && (
-                      <span className="text-[10px] font-mono bg-stone-900 text-white rounded px-1.5 py-0.5">
-                        ¥{stakes[i].toLocaleString()}
-                      </span>
-                    )}
-                  </div>
+                  <span className={`font-mono text-sm font-bold shrink-0 ${i === 0 ? 'text-gold' : 'text-stone-400'}`}>
+                    {confidence}%
+                  </span>
                 </div>
               ))}
             </div>
 
-            {/* Bet info */}
-            <div className="flex gap-2">
-              <div className="flex-1 bg-stone-50 rounded-xl p-3 text-center">
-                <div className="text-xs text-stone-400 font-sans">推奨馬券</div>
-                <div className="text-sm font-sans font-medium text-stone-800 mt-0.5">{BET_LABELS[mode]}</div>
+            {/* 買い目プラン */}
+            {betPlan.length > 0 && (
+              <div className="bg-stone-50 rounded-xl p-3 space-y-2">
+                <div className="text-xs text-stone-400 font-sans mb-2">買い目プラン</div>
+                {betPlan.map((bet, i) => (
+                  <div key={i} className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="shrink-0 text-[11px] font-sans font-semibold bg-stone-900 text-white rounded px-1.5 py-0.5">
+                        {bet.type}
+                      </span>
+                      <span className="text-xs font-serif text-stone-700 truncate">
+                        {horseLabel(bet.type, bet.horses)}
+                      </span>
+                    </div>
+                    <span className="shrink-0 font-mono text-xs font-bold text-stone-900">
+                      ¥{bet.amount.toLocaleString()}
+                    </span>
+                  </div>
+                ))}
+                <div className="border-t border-stone-200 pt-2 flex justify-between items-center">
+                  <span className="text-xs text-stone-400 font-sans">合計</span>
+                  <span className="font-mono font-bold text-stone-900 text-sm">
+                    ¥{betPlan.reduce((s, b) => s + b.amount, 0).toLocaleString()}
+                  </span>
+                </div>
+                <div className="text-[10px] text-stone-400 font-sans">想定オッズ: {ODDS_LABELS[mode]}</div>
               </div>
-              <div className="flex-1 bg-stone-50 rounded-xl p-3 text-center">
-                <div className="text-xs text-stone-400 font-sans">想定オッズ</div>
-                <div className="text-sm font-mono font-medium text-stone-800 mt-0.5">{ODDS_LABELS[mode]}</div>
-              </div>
-            </div>
+            )}
 
             {mode === 'ultra_safe' && (
               <p className="text-xs text-stone-400 font-sans bg-stone-50 rounded-xl p-3 leading-relaxed">
-                上位{pickCount}頭の複勝に軍資金¥{budget.toLocaleString()}を分散配分しています。的中率は高めですが、複勝オッズは低いため、的中しても合計の払戻が購入額を下回る（マイナス収支になる）場合があります。
+                複勝は的中率が高い反面オッズが低く、払戻合計が購入額を下回る場合があります。
               </p>
             )}
           </div>
