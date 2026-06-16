@@ -24,7 +24,10 @@ async def lifespan(app: FastAPI):
         seeded = seed_if_empty(db)
         if seeded:
             logger.info("DB が空だったため初期データを投入しました")
-        retrain(db)
+        try:
+            retrain(db)
+        except Exception as e:
+            logger.warning("起動時モデル学習をスキップしました: %s", e)
     finally:
         db.close()
     yield
