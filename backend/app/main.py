@@ -21,9 +21,13 @@ async def lifespan(app: FastAPI):
     models.Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     try:
-        seeded = seed_if_empty(db)
-        if seeded:
-            logger.info("DB が空だったため初期データを投入しました")
+        try:
+            seeded = seed_if_empty(db)
+            if seeded:
+                logger.info("DB が空だったため初期データを投入しました")
+        except Exception as e:
+            logger.warning("起動時シードをスキップしました: %s", e)
+            db.rollback()
         try:
             retrain(db)
         except Exception as e:
