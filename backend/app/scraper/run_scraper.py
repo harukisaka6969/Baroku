@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from .netkeiba import scrape_horses
 from ..database import engine, SessionLocal
 from ..models import Base, Horse, Race
+from ..ml.train import retrain
 
 logging.basicConfig(
     level=logging.INFO,
@@ -97,6 +98,11 @@ async def main(horse_ids: list[str]) -> None:
                 logger.error(f"  DB保存失敗 [{data.get('name')}]: {e}")
                 db.rollback()
         logger.info(f"DB保存完了: {saved} 頭")
+
+        # 新しいレース結果を取り込んだので予測モデルを増分学習
+        sample_count = retrain(db)
+        if sample_count:
+            logger.info(f"予測モデルを再学習しました（{sample_count}件のレース結果）")
     finally:
         db.close()
 

@@ -82,7 +82,8 @@ class HorseDetail(HorseBase):
 class PredictionRequest(BaseModel):
     horse_ids: List[int]
     race_id: Optional[int] = None
-    mode: str  # "safe" | "balanced" | "risky"
+    mode: str  # "ultra_safe" | "safe" | "balanced" | "risky"
+    budget: Optional[int] = None  # 軍資金（円）
 
 
 class RecommendationItem(BaseModel):
@@ -90,9 +91,18 @@ class RecommendationItem(BaseModel):
     horse_name: str
     reason: str
     confidence: int  # 0-100
+    stake: Optional[int] = None  # 推奨購入額（円）
+
+
+class HorseScore(BaseModel):
+    horse_id: int
+    horse_name: str
+    reason: str
+    confidence: int  # 0-100
 
 
 class PredictionResponse(BaseModel):
+    ranking: List[HorseScore]
     recommendations: List[RecommendationItem]
     bet_type: str
     odds_range: str
